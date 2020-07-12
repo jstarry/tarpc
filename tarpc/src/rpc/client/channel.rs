@@ -78,7 +78,7 @@ impl<'a, Req, Resp> Future for Send<'a, Req, Resp> {
 #[must_use = "futures do nothing unless polled"]
 pub struct Call<'a, Req, Resp> {
     #[pin]
-    fut: tokio::time::Timeout<AndThenIdent<Send<'a, Req, Resp>, DispatchResponse<Resp>>>,
+    fut: AndThenIdent<Send<'a, Req, Resp>, DispatchResponse<Resp>>,
 }
 
 impl<'a, Req, Resp> Future for Call<'a, Req, Resp> {
@@ -86,13 +86,14 @@ impl<'a, Req, Resp> Future for Call<'a, Req, Resp> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let resp = ready!(self.as_mut().project().fut.poll(cx));
-        Poll::Ready(match resp {
-            Ok(resp) => resp,
-            Err(tokio::time::Elapsed { .. }) => Err(io::Error::new(
-                io::ErrorKind::TimedOut,
-                "Client dropped expired request.".to_string(),
-            )),
-        })
+        Poll::Ready(Ok(resp.unwrap()))
+        //  {
+        //     Ok(resp) => resp,
+        //     Err(_err) => Err(io::Error::new(
+        //         io::ErrorKind::TimedOut,
+        //         "Client dropped expired request.".to_string(),
+        //     )),
+        // })
     }
 }
 
@@ -129,15 +130,16 @@ impl<Req, Resp> Channel<Req, Resp> {
     /// Sends a request to the dispatch task to forward to the server, returning a [`Future`] that
     /// resolves to the response.
     pub fn call(&mut self, ctx: context::Context, request: Req) -> Call<Req, Resp> {
-        let timeout = ctx.deadline.time_until();
-        trace!(
-            "[{}] Queuing request with timeout {:?}.",
-            ctx.trace_id(),
-            timeout,
-        );
+        // let timeout = ctx.deadline.time_until();
+        // trace!(
+        //     "[{}] Queuing request with timeout {:?}.",
+        //     ctx.trace_id(),
+        //     timeout,
+        // );
 
         Call {
-            fut: tokio::time::timeout(timeout, AndThenIdent::new(self.send(ctx, request))),
+            fut: AndThenIdent::new(self.send(ctx, request)),
+            // fut: tokio::time::timeout(timeout, AndThenIdent::new(self.send(ctx, request))),
         }
     }
 }
