@@ -52,6 +52,15 @@ pub fn current() -> Context {
     }
 }
 
+/// Returns the context for the current request, or a default Context if no request is active.
+// TODO: populate Context with request-scoped data, with default fallbacks.
+pub fn with_deadline(deadline: SystemTime) -> Context {
+    Context {
+        deadline,
+        trace_context: trace::Context::new_root(),
+    }
+}
+
 impl Context {
     /// Returns the ID of the request-scoped trace.
     pub fn trace_id(&self) -> &TraceId {
